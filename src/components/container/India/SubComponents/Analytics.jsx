@@ -10,10 +10,30 @@ import SimplePieChart from "components/charts/SimplePieChart/SimplePieChart";
 class Analytics extends Component {
   constructor(props) {
     super(props);
-    this.state = {};
+    this.state = { status: false, seconds: 0, started: false };
   }
 
   render() {
+    let toptenCities = [];
+
+    if (this.props.stateWiseCity.length !== 0) {
+      let data = {};
+      Object.values(this.props.stateWiseCity).map((city) => {
+        return Object.assign(data, city.districtData);
+      });
+
+      let sorted = Object.keys(data).sort((a, b) => {
+        return data[b]["confirmed"] - data[a]["confirmed"];
+      });
+      let filtered = sorted
+        .filter((data) => data !== "Unassigned")
+        .slice(0, 10);
+
+      toptenCities = filtered.map((city) => {
+        return { name: city, ["Cases"]: data[city].confirmed };
+      });
+    }
+
     let totalDataDaily =
       this.props.india.length !== 0
         ? this.props.india.cases_time_series.map((cases) => {
@@ -69,7 +89,10 @@ class Analytics extends Component {
     var pieChartData =
       this.props.india.length !== 0
         ? sortable
-            .filter((record) => record.state !== "Total")
+            .filter(
+              (record) =>
+                record.state !== "Total" && record.state !== "State Unassigned"
+            )
             .map((state) => {
               return [state.state, Number(state[this.props.filterByCases])];
             })
@@ -171,10 +194,45 @@ class Analytics extends Component {
           })
         : null;
 
+    let a =
+      this.props.dailyStatus.length !== 0 && this.props.india.length !== 0
+        ? this.props.dailyStatus
+            .filter((data) => data.status === "Confirmed")
+            .map((d, index) => {
+              let x = {};
+              Object.keys(d).map((d1) => {
+                x[d1] = count(d1, this.props.dailyStatus, index);
+              });
+              let ob = Object.fromEntries(
+                Object.entries(
+                  Object.fromEntries(
+                    Object.entries(x).sort((a, b) => b[1] - a[1])
+                  )
+                ).slice(0, 6)
+              );
+
+              let z = Object.keys(ob)
+                .filter((name) => name !== "tt")
+                .map((name, i) => {
+                  return {
+                    name: this.props.india.statewise.filter(
+                      (state) => state.statecode.toLowerCase() === name
+                    )[0].state,
+                    ["Cases"]: ob[name],
+                  };
+                });
+              return z;
+            })
+        : [];
+
     let Columns = [
       { type: "string", label: "name" },
       { type: "number", label: "value" },
     ];
+
+    const filteredByDailyConfirmed = this.props.dailyStatus.filter(
+      (data) => data.status === "Confirmed"
+    );
 
     const colourStyles = {
       control: (styles) => ({
@@ -333,6 +391,29 @@ class Analytics extends Component {
 
     return (
       <div className="row">
+        <div className="col-sm-12 col-12">
+          <div
+            style={{
+              minHeight: 368,
+              background: "linear-gradient(to right, #d9a7c7, #fffcdc)",
+              paddingBottom: 15,
+              paddingLeft: 15,
+              paddingTop: 30,
+              borderRadius: 15,
+              marginBottom: 15,
+            }}
+          >
+            <GradientCardTitle title={"Top 10 cities by confirmed cases"} />
+            <SimpleLineChart
+              chart={"BarChart"}
+              customTooltip={true}
+              grid={false}
+              data={toptenCities}
+              labels={["Cases"]}
+              colors={["#192a56"]}
+            />
+          </div>
+        </div>
         <div className="col-sm-6 col-12">
           <div
             style={{
@@ -400,19 +481,86 @@ class Analytics extends Component {
             />
           </div>
         </div>
-        <div className="col-sm-12 col-12">
+
+        <div className="col-sm-6 col-12">
           <div
             style={{
+              minHeight: 390,
               background: "linear-gradient(to right, #d9a7c7, #fffcdc)",
               paddingBottom: 15,
-              minHeight: 368,
               paddingLeft: 15,
               paddingTop: 30,
               borderRadius: 15,
               marginBottom: 15,
             }}
           >
-            <GradientCardTitle title={"Total cases in top ten states"} />
+            <GradientCardTitle
+              title={"Top 5 states timeline by confirmed cases"}
+            />
+            <div>
+              <div className="timer">
+                <div
+                  className="timer-button"
+                  onClick={() => {
+                    this.setState({
+                      started: !this.state.started,
+                      seconds:
+                        this.state.seconds < a.length - 1
+                          ? this.state.seconds
+                          : 0,
+                    });
+                    this.state.seconds < a.length - 1
+                      ? (this.timer = setInterval(() => {
+                          return this.state.seconds < a.length - 1
+                            ? this.state.started
+                              ? this.setState({
+                                  seconds: this.state.seconds + 1,
+                                })
+                              : null
+                            : (clearInterval(this.timer),
+                              this.state.started === true
+                                ? this.setState({
+                                    started: false,
+                                  })
+                                : null);
+                        }, 1000))
+                      : clearInterval(this.timer);
+                  }}
+                >
+                  {this.state.started ? "Stop" : "Start"}
+                </div>
+              </div>
+              <div className="timer-date">
+                {filteredByDailyConfirmed.length > 0
+                  ? filteredByDailyConfirmed[this.state.seconds].date
+                  : null}
+              </div>
+            </div>
+            <SimpleLineChart
+              layout="vertical"
+              chart={"BarChart"}
+              customTooltip={true}
+              grid={false}
+              data={a[this.state.seconds]}
+              labels={["Cases"]}
+              colors={["#192a56"]}
+            />
+          </div>
+        </div>
+
+        <div className="col-sm-6 col-12">
+          <div
+            style={{
+              background: "linear-gradient(to right, #d9a7c7, #fffcdc)",
+              paddingBottom: 15,
+              minHeight: 390,
+              paddingLeft: 15,
+              paddingTop: 30,
+              borderRadius: 15,
+              marginBottom: 15,
+            }}
+          >
+            <GradientCardTitle title={"Total cases in top 10 states"} />
             <SimpleLineChart
               chart={"AreaChart"}
               legend={false}
@@ -447,7 +595,7 @@ class Analytics extends Component {
               marginBottom: 15,
             }}
           >
-            <GradientCardTitle title={"Top ten states by cases"} />
+            <GradientCardTitle title={"Top 10 states by cases"} />
             <div className="row" style={{ justifyContent: "center" }}>
               <div className="col-sm-4">
                 <Select
@@ -478,6 +626,7 @@ class Analytics extends Component {
             />
           </div>
         </div>
+
         <div className="col-sm-6 col-12">
           <div
             style={{

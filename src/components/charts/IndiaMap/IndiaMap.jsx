@@ -54,12 +54,13 @@ function useWindowSize() {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return windowSize;
 }
 
-const IndiaMap = ({ data }) => {
+const IndiaMap = ({ data, onStateClick }) => {
   const [tooltipContent, setTooltipContent] = useState("");
   const size = useWindowSize();
 
@@ -185,6 +186,7 @@ const IndiaMap = ({ data }) => {
                   geography={geo}
                   fill={current ? colorScale(current.active) : DEFAULT_COLOR}
                   style={geographyStyle}
+                  onClick={() => onStateClick(current)}
                   onMouseEnter={onMouseEnter(geo, current)}
                   onMouseLeave={onMouseLeave}
                 />
